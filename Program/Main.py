@@ -10,6 +10,7 @@ import sys;
 import enum;
 import numpy as np;
 import matplotlib.pyplot as plt;
+from copy import deepcopy;
 
 #
 # usagetype_t
@@ -94,51 +95,71 @@ def BruteForce():
     
     # Generate all possible register allocations, count the cost of each one.
     # Find the minimum cost.
-    mincost = sys.maxsize;
-    n       = instance.n;
-    stop_i  = 5;
-    stack   = [(instance.p[0], 0, 0)]; # Stack of instructions to be processed. Contains the instruction, the placement of the register (index of register), and the index of the instruction in the program.
+    mincost           = sys.maxsize;
+    mincostallocation = None;
+    n                 = instance.n;
+    stop_i            = -1;
+    stack             = []; # Stack of instructions to be processed. Contains the instruction, the placement of the register (index of register), cost, and the index of the instruction in the program.
+    iteration         = 0;
+    for i in range(0, n):
+        stack.append((instance.p[0], i, instance.s[i], 0));
     while (len(stack) > 0):
         argument      = stack.pop();
         instruction   = argument[0];
         step_register = instruction[0];
         step_usage    = instruction[1];
         placement     = argument[1];
-        i             = argument[2];
+        cost          = argument[2];
+        i             = argument[3];
+        iteration     = 1+iteration;
         
+        if (iteration % 1000000 == 0):
+            print("Iteration: {}".format(iteration));
+            print("Stack size: {}".format(len(stack)));
+            print("Minimum cost: {}".format(mincost));
+            print("\n\n");
+
         # Set all register configurations after i to -1, meaning they are not used.
-        for j in range(i, len(instance.p)):
-            for k in range(0, n):
-                allocation[j][k] = -1;
+        #for j in range(i, len(instance.p)):
+        #    for k in range(0, n):
+        #        allocation[j][k] = -1;
+        allocation[i:len(instance.p), 0:n] = -1
 
         # Copy previous allocation as the starting allocation for this step.
-        if (i > 0):
-            for j in range(0, n):
-                allocation[i][j] = allocation[i-1][j];
+        #if (i > 0):
+        #    for j in range(0, n):
+        #        allocation[i][j] = allocation[i-1][j];
         allocation[i][placement] = step_register;
-        #print("Depth: {}\n Try: {} at {}\nAllocation: {}\n\n".format(i, instruction, placement, allocation));
-
+        #print(f'Depth: {i}\n Try: {instruction} at {placement}\nAllocation cost: {cost}\n\n');
+    
         # Find place in allocation for next instruction.
         # -1 means register was never used before.
         # If it's not -1, then it's already in the allocation.
-        if (i+1 < len(instance.p) and (i < stop_i)):
+        if (i+1 < len(instance.p) and (stop_i < 0 or i < stop_i)):
             next_instruction = instance.p[i+1];
             next_register    = next_instruction[0];
             next_i           = i+1;
 
             for j in range(0, n):
                 if (allocation[i][j] == -1):
-                    stack.append((next_instruction, j, next_i)); # does have cost
+                    stack.append((next_instruction, j, cost+instance.s[j], next_i)); # Added cost of loading the resgister.
                 elif (allocation[i][j] == next_register):
-                    stack.append((next_instruction, j, next_i)); # no cost
+                    stack.append((next_instruction, j, cost, next_i)); # no cost
                 else:
                     # Some register has to be freed.
                     # Add all possible moves to the stack.
                     for k in range(0, n):
-                        stack.append((next_instruction, k, next_i));
+                        stack.append((next_instruction, k, cost+instance.s[j]+instance.s[k], next_i)); # Added cost of storing the register and loading another.
+        else:
+            if (cost < mincost):
+                mincost = cost;
+                mincostallocation = np.copy(allocation);
+                print("New minimum cost: {}".format(mincost));
+                print(allocation);
+                print("\n\n");
 
-
-    print(allocation);
+    print("Minimum cost: {}".format(mincost));
+    print(mincostallocation);
 
 #
 # Main
