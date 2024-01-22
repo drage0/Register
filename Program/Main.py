@@ -7,8 +7,25 @@
 #
 
 import sys;
+import enum;
 import numpy as np;
 import matplotlib.pyplot as plt;
+
+#
+# usagetype_t
+#
+class usagetype_t(enum.Enum):
+    READ  = 1;
+    WRITE = 2;
+
+    def __str__(self):
+        if (self == usagetype_t.READ):
+            return "READ";
+        elif (self == usagetype_t.WRITE):
+            return "WRITE";
+    
+    def __repr__(self):
+        return self.__str__();
 
 #
 # Instance
@@ -16,6 +33,7 @@ import matplotlib.pyplot as plt;
 # n - number of registers.
 # s - cost of loading or storing register i.
 # p - program, sequence of what is read/written at each instruction (step).
+#     p[i] = [x, usagetype_t]
 #
 class Instance:
     def __init__(self, n, s, p):
@@ -24,7 +42,7 @@ class Instance:
         self.p = p;
     
     def __str__(self):
-        return "n = {}\ns = {}\np = {}".format(self.n, self.s, self.p);
+        return "n = {}\ns = {}\np = {}\n".format(self.n, self.s, self.p);
 
 #
 # ReadInstance
@@ -49,12 +67,12 @@ def ReadInstance(name):
                 if (instruction.upper() == "MOV" or instruction.upper() == "ADD" or instruction.upper() == "SUB" or instruction.upper() == "MUL"):
                     argument = [ instructionlist[1].rsplit(',')[0], instructionlist[2].rsplit(',')[0], instructionlist[3] ];
                     if (not argument[0].isdigit()):
-                        p.append([argument[0][1:], 'R']);
+                        p.append((int(argument[0][1:]), usagetype_t.READ));
                     if (not argument[1].isdigit()):
-                        p.append([argument[1][1:], 'R']);
+                        p.append((int(argument[1][1:]), usagetype_t.READ));
                     if (argument[2].isdigit()):
                         raise Exception("Erroneous program instruction. Destination register cannot be a constant.");
-                    p.append([argument[2][1:], 'W']);
+                    p.append((int(argument[2][1:]), usagetype_t.WRITE));
 
             instance = Instance(n, s, p);
     except IOError:
@@ -67,7 +85,6 @@ def ReadInstance(name):
 #
 # Brute force method.
 #
-
 def BruteForce():
     instance = ReadInstance("Example 1.asm");
     print(instance);
@@ -78,7 +95,6 @@ def BruteForce():
 #
 # Main entry point.
 #
-
 def Main():
     BruteForce();
     pass;
