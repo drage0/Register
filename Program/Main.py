@@ -42,7 +42,7 @@ class Instance:
         self.p = p;
     
     def __str__(self):
-        return "n = {}\ns = {}\np = {}\n".format(self.n, self.s, self.p);
+        return "n = {}\ns = {}\np = {}".format(self.n, self.s, self.p);
 
 #
 # ReadInstance
@@ -88,7 +88,57 @@ def ReadInstance(name):
 def BruteForce():
     instance = ReadInstance("Example 1.asm");
     print(instance);
-    pass;
+
+    # Register configuration after each instruction.
+    allocation = np.full((len(instance.p), instance.n), -1, dtype=int);
+    
+    # Generate all possible register allocations, count the cost of each one.
+    # Find the minimum cost.
+    mincost = sys.maxsize;
+    n       = instance.n;
+    stop_i  = 5;
+    stack   = [(instance.p[0], 0, 0)]; # Stack of instructions to be processed. Contains the instruction, the placement of the register (index of register), and the index of the instruction in the program.
+    while (len(stack) > 0):
+        argument      = stack.pop();
+        instruction   = argument[0];
+        step_register = instruction[0];
+        step_usage    = instruction[1];
+        placement     = argument[1];
+        i             = argument[2];
+        
+        # Set all register configurations after i to -1, meaning they are not used.
+        for j in range(i, len(instance.p)):
+            for k in range(0, n):
+                allocation[j][k] = -1;
+
+        # Copy previous allocation as the starting allocation for this step.
+        if (i > 0):
+            for j in range(0, n):
+                allocation[i][j] = allocation[i-1][j];
+        allocation[i][placement] = step_register;
+        #print("Depth: {}\n Try: {} at {}\nAllocation: {}\n\n".format(i, instruction, placement, allocation));
+
+        # Find place in allocation for next instruction.
+        # -1 means register was never used before.
+        # If it's not -1, then it's already in the allocation.
+        if (i+1 < len(instance.p) and (i < stop_i)):
+            next_instruction = instance.p[i+1];
+            next_register    = next_instruction[0];
+            next_i           = i+1;
+
+            for j in range(0, n):
+                if (allocation[i][j] == -1):
+                    stack.append((next_instruction, j, next_i)); # does have cost
+                elif (allocation[i][j] == next_register):
+                    stack.append((next_instruction, j, next_i)); # no cost
+                else:
+                    # Some register has to be freed.
+                    # Add all possible moves to the stack.
+                    for k in range(0, n):
+                        stack.append((next_instruction, k, next_i));
+
+
+    print(allocation);
 
 #
 # Main
