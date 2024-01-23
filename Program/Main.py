@@ -113,22 +113,28 @@ def BruteForce():
         i             = argument[3];
         iteration     = 1+iteration;
         
-        if (iteration % 1000000 == 0):
+        if (iteration % 1_000_000 == 0):
             print("Iteration: {}".format(iteration));
             print("Stack size: {}".format(len(stack)));
             print("Minimum cost: {}".format(mincost));
             print("\n\n");
 
+        #
+        # No need to continue if the cost is already higher than the minimum cost.
+        #
+        if (cost > mincost):
+            continue;
+
         # Set all register configurations after i to -1, meaning they are not used.
-        #for j in range(i, len(instance.p)):
-        #    for k in range(0, n):
-        #        allocation[j][k] = -1;
-        allocation[i:len(instance.p), 0:n] = -1
+        for j in range(i, len(instance.p)):
+            for k in range(0, n):
+                allocation[j][k] = -1;
+        #allocation[i:len(instance.p), 0:n] = -1
 
         # Copy previous allocation as the starting allocation for this step.
-        #if (i > 0):
-        #    for j in range(0, n):
-        #        allocation[i][j] = allocation[i-1][j];
+        if (i > 0):
+            for j in range(0, n):
+                allocation[i][j] = allocation[i-1][j];
         allocation[i][placement] = step_register;
         #print(f'Depth: {i}\n Try: {instruction} at {placement}\nAllocation cost: {cost}\n\n');
     
@@ -143,8 +149,13 @@ def BruteForce():
             for j in range(0, n):
                 if (allocation[i][j] == -1):
                     stack.append((next_instruction, j, cost+instance.s[j], next_i)); # Added cost of loading the resgister.
+                    break;
                 elif (allocation[i][j] == next_register):
-                    stack.append((next_instruction, j, cost, next_i)); # no cost
+                    if (step_usage == usagetype_t.WRITE):
+                        stack.append((next_instruction, j, cost+instance.s[j], next_i)); # Cost of writing to the register.
+                    else:
+                        stack.append((next_instruction, j, cost, next_i)); # No cost of reading from the register (it's already loaded).
+                    break;
                 else:
                     # Some register has to be freed.
                     # Add all possible moves to the stack.
@@ -156,7 +167,7 @@ def BruteForce():
                 mincostallocation = np.copy(allocation);
                 print("New minimum cost: {}".format(mincost));
                 print(allocation);
-                print("\n\n");
+                print("\n\n");  
 
     print("Minimum cost: {}".format(mincost));
     print(mincostallocation);
