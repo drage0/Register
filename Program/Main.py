@@ -12,6 +12,7 @@ import enum;
 import numpy as np;
 import random;
 import matplotlib.pyplot as plt;
+from datetime import datetime;
 from copy import deepcopy;
 
 #
@@ -52,6 +53,42 @@ class Instance:
 #
 def PrintLineSeparator():
     print("----------------\n");
+
+#
+#
+#
+def CalculateFitness(allocation, usage, registercost, max_depth=-1):
+    cost = 0;
+
+    p = len(allocation);
+    n = len(allocation[0]);
+
+    if (max_depth < 0):
+        max_depth = p;
+    else:
+        max_depth = max_depth+1;
+
+    # Find first register that isn't -1
+    for i in range(0, n):
+        if (allocation[0][i] != -1):
+            cost += registercost[i];
+            break;
+
+    for i in range(1, max_depth):
+        previous = allocation[i-1];
+        now      = allocation[i];
+
+        for j in range(0, n):
+            # Register was never used before.
+            if (previous[j] == -1 and now[j] != -1):
+                cost += registercost[j];
+            # Register isn't loaded.
+            elif (previous[j] != now[j]):
+                cost += registercost[j] + registercost[j];
+            # Register is loaded and we are writing to it now.
+            elif (usage[i][0] == j and usage[i][1] == usagetype_t.WRITE): 
+                cost += registercost[j];
+    return cost;
 
 #
 # ReadInstance
@@ -137,15 +174,14 @@ def BruteForce(bake, name, iteration_break):
         stack             = [];
         iteration         = 0;
         for i in range(0, n):
-            stack.append((instance.p[0], i, instance.s[i], 0));
+            stack.append((instance.p[0], i, 0));
         while (len(stack) > 0):
             argument      = stack.pop();
+            i             = argument[2];
+            placement     = argument[1];
             instruction   = argument[0];
             step_register = instruction[0];
             step_usage    = instruction[1];
-            placement     = argument[1];
-            cost          = argument[2];
-            i             = argument[3];
             iteration     = 1+iteration;
             
             if (iteration % iteration_break == 0):
@@ -153,12 +189,6 @@ def BruteForce(bake, name, iteration_break):
                 print("Iteration: {}".format(iteration));
                 print("Minimum cost: {}".format(mincost));
                 PrintLineSeparator();
-            
-            #
-            # No need to continue if the cost is already higher than the minimum cost.
-            #
-            if (cost > mincost):
-                continue;
 
             # Set all register configurations after i to -1, meaning they are not used.
             for j in range(i, len(instance.p)):
@@ -168,6 +198,15 @@ def BruteForce(bake, name, iteration_break):
             if (i > 0):
                 allocation[i] = allocation[i-1].copy()
             allocation[i][placement] = step_register;
+
+            #
+            # No need to continue if the cost is already higher than the minimum cost.
+            #
+            # Hack
+            cost = CalculateFitness(allocation, instance.p, instance.s, i);
+            if (cost > mincost):
+                #pass;
+                continue;
             
             #
             # Find place in allocation for next instruction.
@@ -177,28 +216,10 @@ def BruteForce(bake, name, iteration_break):
             if (i+1 < len(instance.p) and (stop_i < 0 or i < stop_i)):
                 next_instruction = instance.p[i+1];
                 next_register    = next_instruction[0];
-                next_i           = i+1;
-
-                #  Random permutation of random(0, n)
-                randomlist = np.random.permutation(n);
-
+                next_i           = i+1; 
+                randomlist       = np.random.permutation(n);
                 for j in randomlist:
-                    if (allocation[i][j] == -1):
-                        stack.append((next_instruction, j, cost+instance.s[j], next_i)); # Added cost of loading the resgister.
-                        break;
-                    elif (allocation[i][j] == next_register):
-                        if (step_usage == usagetype_t.WRITE):
-                            stack.append((next_instruction, j, cost+instance.s[j], next_i)); # Cost of writing to the register.
-                        else:
-                            stack.append((next_instruction, j, cost, next_i)); # No cost of reading from the register (it's already loaded).
-                        break;
-                    else:
-                        # Some register has to be freed.
-                        # Add all possible moves to the stack.
-                        #randomlist_2 = np.random.permutation(n);
-                        #for k in randomlist_2:
-                        #    stack.append((next_instruction, k, cost+instance.s[j]+instance.s[k], next_i)); # Added cost of storing the register and loading another.
-                        stack.append((next_instruction, j, cost+instance.s[j]+instance.s[j], next_i)); # Added cost of storing the register and loading another.
+                    stack.append((next_instruction, j, next_i));
             else:
                 if (cost < mincost):
                     mincost = cost;
@@ -257,11 +278,18 @@ def BruteForce(bake, name, iteration_break):
     plt.ylabel("Minimum cost");
     plt.title("History (brute force)");
     plt.show();
+    return history;
 
 #
 # Genetic programming individual
 #
 class GeneticProgrammingIndividual:
+    def Setup2(self, program, registercost, allocation, usage):
+        self.registercost = registercost;
+        self.cost         = 0;
+        self.allocation   = allocation;
+        self.usage        = usage;
+    
     def __init__(self, program, registercost):
         self.registercost = registercost;
         self.cost         = 0;
@@ -290,13 +318,16 @@ class GeneticProgrammingIndividual:
             self.allocation[i][placement] = register;
             self.usage[i]                 = (placement, usage);
 
-        self.cost = self.Cost();
+        self.Cost();
     
     def __str__(self):
-        return "Cost: {}\nAllocation: {}\nUsage: {}\n".format(self.cost, self.allocation, self.usage);
+        return "Cost: {}\n'Allocation: {}\n".format(self.cost, self.allocation);
 
     def Cost(self):
-        cost = 0;
+        self.cost = 0;
+
+        self.cost = CalculateFitness(self.allocation, self.usage, self.registercost, -1);
+        return self.cost;
 
         p = len(self.allocation);
         n = len(self.allocation[0]);
@@ -304,7 +335,7 @@ class GeneticProgrammingIndividual:
         # Find first register that isn't -1
         for i in range(0, n):
             if (self.allocation[0][i] != -1):
-                cost += self.registercost[i];
+                self.cost += self.registercost[i];
                 break;
 
         for i in range(1, p):
@@ -314,15 +345,15 @@ class GeneticProgrammingIndividual:
             for j in range(0, n):
                 # Register was never used before.
                 if (previous[j] == -1 and now[j] != -1):
-                    cost += self.registercost[j];
+                    self.cost += self.registercost[j];
                 # Register isn't loaded.
                 elif (previous[j] != now[j]):
-                    cost += self.registercost[j] + self.registercost[j];
+                    self.cost += self.registercost[j] + self.registercost[j];
                 # Register is loaded and we are writing to it now.
                 elif (self.usage[i][0] == j and self.usage[i][1] == usagetype_t.WRITE): 
-                    cost += self.registercost[j];
+                    self.cost += self.registercost[j];
         
-        return cost;
+        return self.cost;
 
 #
 # GeneticProgramming_Selection
@@ -330,29 +361,93 @@ class GeneticProgrammingIndividual:
 # Selection method for genetic programming.
 #
 def GeneticProgramming_Selection(population):
-    TOURNAMENT_SIZE = 5;
+    TOURNAMENT_SIZE = 10;
     
     sample = random.sample(population, TOURNAMENT_SIZE);
-    sample.sort(key=lambda x: x.cost, reverse=True);
-    return (sample[0], sample[1]);
+    sample.sort(key=lambda x: x.cost, reverse=False);
+    return sample[0];
+
+#
+# GeneticProgramming_Subtree
+#
+def GeneticProgramming_Subtree(node, subtree, n):
+    if (node < n):
+        subtree.add(node);
+        GeneticProgramming_Subtree(node*2+1, subtree, n);
+        GeneticProgramming_Subtree(node*2+2, subtree, n);
+
+#
+# GeneticProgramming_Crossover
+#
+def GeneticProgramming_Crossover(p1, p2, c1, c2):
+    n    = len(p1.allocation);
+    node = random.randrange(1, n);
+
+    subtree = set()
+    for i in range(node, n):
+        subtree.add(i);
+
+    for i in range(n):
+        if i in subtree:
+            c1.allocation[i] = p2.allocation[i].copy();
+            c2.allocation[i] = p1.allocation[i].copy();
+        else:
+            c1.allocation[i] = p1.allocation[i].copy();
+            c2.allocation[i] = p2.allocation[i].copy();
+
+#
+# GeneticProgramming_Mutation
+#
+def GeneticProgramming_Mutation(individual, program, registercount):
+    start = len(program);
+    
+    if (random.random() < 0.75):
+        start = random.randrange(0, len(program));
+
+    start = random.randrange(0, len(program));
+
+    #costnow = individual.Cost();
+    for i in range(start, len(program)):
+        instruction = program[i];
+        register    = instruction[0];
+        usage       = instruction[1];
+
+        # Copy previous allocation as this one.
+        individual.allocation[i] = individual.allocation[i-1].copy();
+
+        # Pick random register.
+        placement                           = np.random.randint(0, registercount, size=1);
+        individual.allocation[i][placement] = register;
+        individual.usage[i]                 = (placement, usage);
+    #costnow = costnow- individual.Cost();
+    #print(costnow);
 
 #
 # Genetic programming
 #
 # Genetic programming method (without mutation)
 #
-def GeneticProgramming(bake, name, population_number):
+def GeneticProgramming(bake, name, iteration_break, population_number, iterationcount, bruteresult):
     ELITISM_SIZE          = 2;
     instance_name         = name;
     instance_filepath_txt = f"Document/{instance_name} genetic programming.txt";
     instance              = ReadInstance(instance_name);
-    result                = (None, 0);
+    result                = (None, sys.maxsize);
     history               = [];
 
     print("GeneticProgramming");
     print(instance);
     print("Population number: {}".format(population_number));
     PrintLineSeparator();
+
+    #
+    #ind_allocation = [[-1,  0, -1], [ 1,  0, -1], [ 1,  0, -1],[ 1,  2, -1],[ 1,  3, -1],[ 1,  3, -1],[ 1,  4, -1],[ 1,  4,  5],[ 1,  2,  5],[ 1,  2,  5],[ 6,  2,  5],[ 6,  1,  5],[ 6,  1,  5],[ 6,  7,  5]];
+    #ind            = GeneticProgrammingIndividual(instance.p, instance.s);
+    #ind.allocation = ind_allocation;
+    #ind.Cost();
+    #print(f"{ind}");
+    #exit(1);
+    #
 
     # Forcibly bake if the solution file doesn't yet exist.
     bake = (bake or not os.path.isfile(instance_filepath_txt));
@@ -365,23 +460,56 @@ def GeneticProgramming(bake, name, population_number):
         
         populationnew = deepcopy(population);
 
-        for i in range(0, 1000):
-            population.sort(key=lambda x: x.cost, reverse=True);
+        for i in range(0, iterationcount):
+            population.sort(key=lambda x: x.cost, reverse=False);
+
+            if (int(result[1]) == int(bruteresult)):
+                history.append((i, population[0].cost));
+                print("BREAK!!!!!!!!!!!");
+                break;
+            
+
+            if (i % iteration_break == 0):
+                history.append((i, population[0].cost));
+                print("Iteration: {} brute result {} result[1] {}".format(i, bruteresult, result[1]));
+                print("Minimum cost: {}".format(population[0].cost));
+                print("Average cost: {}".format(sum([x.cost for x in population])/len(population)));
+                print([x.cost for x in population]);
+                PrintLineSeparator();
 
             populationnew[:ELITISM_SIZE] = population[:ELITISM_SIZE];
             for j in range(ELITISM_SIZE, population_number, 2):
-                p1, p2 = GeneticProgramming_Selection(population);
+                p1 = GeneticProgramming_Selection(population);
+                p2 = GeneticProgramming_Selection(population);
 
-                crossover(p1, p2, c1=populationnew[j], c2=populationnew[j+1]);
+                GeneticProgramming_Crossover(p1, p2, c1=populationnew[j], c2=populationnew[j+1]);
+
+                GeneticProgramming_Mutation(populationnew[j], instance.p, len(instance.s));
+                GeneticProgramming_Mutation(populationnew[j+1], instance.p, len(instance.s));
 
                 populationnew[j].cost   = populationnew[j].Cost();
                 populationnew[j+1].cost = populationnew[j+1].Cost();
 
             population = deepcopy(populationnew);
 
-        max_cost = max(population, key=lambda x: x.cost);
-        print("Maximum cost: {}".format(max_cost.cost));
+            best = min(population, key=lambda x: x.cost);
+            if (best.cost < result[1]):
+                result = (best, best.cost);
         
+        print("Minimum cost: {}".format(result[0]));
+        
+    #
+    # Plot history.
+    #
+    plt.plot([x[0] for x in history], [x[1] for x in history]);
+    plt.yticks(np.arange(0, max([x[1] for x in history])+1, 1));
+    plt.locator_params(nbins=20);
+    plt.xlim(left=0);
+    plt.xlabel("Iteration");
+    plt.ylabel("Minimum cost");
+    plt.title("History (genetic programming)");
+    plt.show();
+
         
 #
 # Main
@@ -389,12 +517,13 @@ def GeneticProgramming(bake, name, population_number):
 # Main entry point.
 #
 def Main():
-    bake = False;
+    bake = True;
     name = sys.argv[1];
 
-    BruteForce(bake, name, 100_000);
+    random.seed(datetime.now().timestamp());
 
-    GeneticProgramming(bake, name, 20);
+    brute   = BruteForce(bake, name, 100);
+    genetic = GeneticProgramming(bake, name, 10, 60, 10000, brute[-1][1]);
 
 if __name__ == "__main__":
     Main();
