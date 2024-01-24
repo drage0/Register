@@ -465,15 +465,15 @@ def GeneticProgramming(bake, name, iteration_break, population_number, iteration
 
             if (int(result[1]) == int(bruteresult)):
                 history.append((i, population[0].cost));
-                print("BREAK!!!!!!!!!!!");
+                #print("BREAK!!!!!!!!!!!");
                 break;
             
 
             if (i % iteration_break == 0):
                 history.append((i, population[0].cost));
-                print("Iteration: {} brute result {} result[1] {}".format(i, bruteresult, result[1]));
+                print("Iteration: {}".format(i, bruteresult, result[1]));
                 print("Minimum cost: {}".format(population[0].cost));
-                print("Average cost: {}".format(sum([x.cost for x in population])/len(population)));
+                #print("Average cost: {}".format(sum([x.cost for x in population])/len(population)));
                 print([x.cost for x in population]);
                 PrintLineSeparator();
 
@@ -517,13 +517,13 @@ def GeneticProgramming(bake, name, iteration_break, population_number, iteration
 # Main entry point.
 #
 def Main():
-    bake = True;
+    bake = False;
     name = sys.argv[1];
 
     random.seed(datetime.now().timestamp());
 
     brute   = BruteForce(bake, name, 100);
-    genetic = GeneticProgramming(bake, name, 10, 60, 10000, brute[-1][1]);
+    genetic = GeneticProgramming(bake, name, 10, 60, 3000, brute[-1][1]);
 
 if __name__ == "__main__":
     Main();
