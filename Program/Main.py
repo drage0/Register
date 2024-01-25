@@ -138,7 +138,7 @@ def ReadInstance(name):
 #
 # Brute force method.
 #
-def BruteForce(bake, name, iteration_break):
+def BruteForce(bake, name, iteration_break, onlybaked, showresult):
     instance_name         = name;
     instance_filepath_txt = f"Document/{instance_name} brute force.txt";
     instance              = ReadInstance(instance_name);
@@ -152,6 +152,9 @@ def BruteForce(bake, name, iteration_break):
     bake = (bake or not os.path.isfile(instance_filepath_txt));
 
     if (bake):
+        if (onlybaked):
+            print("Instance \"{}\" was asked as already baked, but baking is set to true!".format(name));
+            return None;
         print(f"Bake file {instance_filepath_txt}...");
 
         # Register configuration after each instruction.
@@ -270,14 +273,15 @@ def BruteForce(bake, name, iteration_break):
     #
     # Plot history.
     #
-    plt.plot([x[0] for x in history], [x[1] for x in history]);
-    plt.yticks(np.arange(0, max([x[1] for x in history])+1, 1));
-    plt.locator_params(nbins=20);
-    plt.xlim(left=0);
-    plt.xlabel("Iteration");
-    plt.ylabel("Minimum cost");
-    plt.title("History (brute force)");
-    plt.show();
+    if (showresult):
+        plt.plot([x[0] for x in history], [x[1] for x in history]);
+        plt.yticks(np.arange(0, max([x[1] for x in history])+1, 1));
+        plt.locator_params(nbins=20);
+        plt.xlim(left=0);
+        plt.xlabel("Iteration");
+        plt.ylabel("Minimum cost");
+        plt.title("History (brute force)");
+        plt.show();
     return history;
 
 #
@@ -463,7 +467,7 @@ def GeneticProgramming(bake, name, iteration_break, population_number, iteration
         for i in range(0, iterationcount):
             population.sort(key=lambda x: x.cost, reverse=False);
 
-            if (int(result[1]) == int(bruteresult)):
+            if (bruteresult is not None and int(result[1]) == int(bruteresult)):
                 history.append((i, population[0].cost));
                 #print("BREAK!!!!!!!!!!!");
                 break;
@@ -516,14 +520,49 @@ def GeneticProgramming(bake, name, iteration_break, population_number, iteration
 #
 # Main entry point.
 #
-def Main():
+def Main(name, bake, method):
     bake = False;
-    name = sys.argv[1];
+    brute = None;
 
     random.seed(datetime.now().timestamp());
 
-    brute   = BruteForce(bake, name, 100);
-    genetic = GeneticProgramming(bake, name, 10, 60, 3000, brute[-1][1]);
+    if (method == 0):
+        brute   = BruteForce(bake, name, 100, False, True);
+    elif (method == 1):
+        bruteforce_txt = f"Document/{name} brute force.txt";
+        brutetarget    = None;
+
+        if (os.path.isfile(bruteforce_txt)):
+            brute       = BruteForce(bake, name, 100, True, False);
+            brutetarget = brute[-1][1];
+        else:
+            print("There is no previous history with brute force method!");
+            brutetarget = 0;
+        
+        genetic = GeneticProgramming(bake, name, 10, 60, 3000, brutetarget);
 
 if __name__ == "__main__":
-    Main();
+    import argparse;
+
+    parser = argparse.ArgumentParser(description="Minimum local register allocation.");
+    parser.add_argument("-n", "--name", help="Instance name.");
+    parser.add_argument("-b", "--bake", help="Bake file (0/1).");
+    parser.add_argument("-m", "--method", help="Method (brute force/genetic programming).");
+    args = parser.parse_args();
+    name = args.name;
+    method = args.method;
+
+    if (method == "brute force"):
+        method = 0;
+    elif (method == "genetic programming"):
+        method = 1;
+
+    if (name == None):
+        print("Instance name not specified.");
+        sys.exit(1);
+
+    bake = False;
+    if (args.bake == "1"):
+        bake = True;
+
+    Main(name, bake, method);
