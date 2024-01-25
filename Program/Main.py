@@ -9,6 +9,7 @@
 import os
 import sys;
 import enum;
+import math;
 import numpy as np;
 import random;
 import matplotlib.pyplot as plt;
@@ -108,9 +109,12 @@ def ReadInstance(name):
             s = [int(x) for x in f.readline().split()];
             p = [];
             for line in f:
+                if (line[0] == ';' or line[0] == '\n' or line.strip() == ""):
+                    continue;
                 instructionlist = line.split();
                 instruction     = instructionlist[0];
-                if (instruction.upper() == "ADD" or instruction.upper() == "SUB" or instruction.upper() == "MUL"):
+                if (instruction.upper() == "ADD" or instruction.upper() == "SUB" or instruction.upper() == "MUL" or instruction.upper() == "UMUL" or instruction.upper() == "IMUL"):
+                    print(instructionlist);
                     argument = [ instructionlist[1].rsplit(',')[0], instructionlist[2].rsplit(',')[0], instructionlist[3] ];
                     if (not argument[0].isdigit()):
                         p.append((int(argument[0][1:]), usagetype_t.READ));
@@ -119,7 +123,8 @@ def ReadInstance(name):
                     if (argument[2].isdigit()):
                         raise Exception("Erroneous program instruction. Destination register cannot be a constant.");
                     p.append((int(argument[2][1:]), usagetype_t.WRITE));
-                elif (instruction.upper() == "MOV"):
+                elif (instruction.upper() == "MOV" or instruction.upper() == "MOVSS" or instruction.upper() == "LEA"):
+                    print(instructionlist);
                     argument = [ instructionlist[1].rsplit(',')[0], instructionlist[2] ];
                     if (not argument[0].isdigit()):
                         p.append((int(argument[0][1:]), usagetype_t.READ));
@@ -146,6 +151,7 @@ def BruteForce(bake, name, iteration_break, onlybaked, showresult):
     history               = [];
 
     print(instance);
+    print(f"bake: {bake}");
     PrintLineSeparator();
 
     # Forcibly bake if the solution file doesn't yet exist.
@@ -365,9 +371,14 @@ class GeneticProgrammingIndividual:
 # Selection method for genetic programming.
 #
 def GeneticProgramming_Selection(population):
-    TOURNAMENT_SIZE = 10;
-    
-    sample = random.sample(population, TOURNAMENT_SIZE);
+    TOURNAMENT_SIZE = 5;
+
+    sumcost = sum([x.cost for x in random.sample(population, TOURNAMENT_SIZE)]);
+    sample  = [];
+    for i in range(0, len(population)):
+        for j in range(0, int(math.ceil(sumcost/population[i].cost))):
+            sample.append(population[i]);
+
     sample.sort(key=lambda x: x.cost, reverse=False);
     return sample[0];
 
@@ -402,10 +413,10 @@ def GeneticProgramming_Crossover(p1, p2, c1, c2):
 #
 # GeneticProgramming_Mutation
 #
-def GeneticProgramming_Mutation(individual, program, registercount):
+def GeneticProgramming_Mutation(individual, program, registercount, populationsize):
     start = len(program);
     
-    if (random.random() < 0.75):
+    if (random.random() < 1/(populationsize/25)):
         start = random.randrange(0, len(program));
 
     start = random.randrange(0, len(program));
@@ -488,8 +499,8 @@ def GeneticProgramming(bake, name, iteration_break, population_number, iteration
 
                 GeneticProgramming_Crossover(p1, p2, c1=populationnew[j], c2=populationnew[j+1]);
 
-                GeneticProgramming_Mutation(populationnew[j], instance.p, len(instance.s));
-                GeneticProgramming_Mutation(populationnew[j+1], instance.p, len(instance.s));
+                GeneticProgramming_Mutation(populationnew[j], instance.p, len(instance.s), population_number);
+                GeneticProgramming_Mutation(populationnew[j+1], instance.p, len(instance.s), population_number);
 
                 populationnew[j].cost   = populationnew[j].Cost();
                 populationnew[j+1].cost = populationnew[j+1].Cost();
@@ -520,8 +531,7 @@ def GeneticProgramming(bake, name, iteration_break, population_number, iteration
 #
 # Main entry point.
 #
-def Main(name, bake, method):
-    bake = False;
+def Main(name, bake, method, geneticiteration, geneticpopulation):
     brute = None;
 
     random.seed(datetime.now().timestamp());
@@ -539,18 +549,22 @@ def Main(name, bake, method):
             print("There is no previous history with brute force method!");
             brutetarget = 0;
         
-        genetic = GeneticProgramming(bake, name, 10, 60, 3000, brutetarget);
+        genetic = GeneticProgramming(bake, name, 5, geneticpopulation, geneticiteration, brutetarget);
 
 if __name__ == "__main__":
     import argparse;
 
     parser = argparse.ArgumentParser(description="Minimum local register allocation.");
     parser.add_argument("-n", "--name", help="Instance name.");
-    parser.add_argument("-b", "--bake", help="Bake file (0/1).");
+    parser.add_argument("-b", "--bake", help="Bake file (0/1).", default=0);
     parser.add_argument("-m", "--method", help="Method (brute force/genetic programming).");
+    parser.add_argument("-i", "--iteration", help="Maximum iteration count for genetic programming.", default=3000);
+    parser.add_argument("-p", "--population", help="Population number for genetic programming (must be multiple of 2).", default=60);
     args = parser.parse_args();
     name = args.name;
     method = args.method;
+    geneticpopulation = int(args.population);
+    geneticiteration = int(args.iteration);
 
     if (method == "brute force"):
         method = 0;
@@ -565,4 +579,5 @@ if __name__ == "__main__":
     if (args.bake == "1"):
         bake = True;
 
-    Main(name, bake, method);
+    print("bake: " + str(bake));
+    Main(name, bake, method, geneticiteration, geneticpopulation);
