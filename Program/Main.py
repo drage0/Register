@@ -531,7 +531,7 @@ def GeneticProgramming(bake, name, iteration_break, population_number, iteration
 #
 # Main entry point.
 #
-def Main(name, bake, method, geneticiteration, geneticpopulation):
+def Main(name, bake, method, geneticiteration, geneticpopulation, geneticiterationbreak):
     brute = None;
 
     random.seed(datetime.now().timestamp());
@@ -549,7 +549,7 @@ def Main(name, bake, method, geneticiteration, geneticpopulation):
             print("There is no previous history with brute force method!");
             brutetarget = 0;
         
-        genetic = GeneticProgramming(bake, name, 5, geneticpopulation, geneticiteration, brutetarget);
+        genetic = GeneticProgramming(bake, name, geneticiterationbreak, geneticpopulation, geneticiteration, brutetarget);
 
 if __name__ == "__main__":
     import argparse;
@@ -560,11 +560,13 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--method", help="Method (brute force/genetic programming).");
     parser.add_argument("-i", "--iteration", help="Maximum iteration count for genetic programming.", default=3000);
     parser.add_argument("-p", "--population", help="Population number for genetic programming (must be multiple of 2).", default=60);
+    parser.add_argument("-r" , "--iterationbreak", help="Iteration break for genetic programming.", default=5);
     args = parser.parse_args();
     name = args.name;
     method = args.method;
     geneticpopulation = int(args.population);
     geneticiteration = int(args.iteration);
+    geneticiterationbreak = int(args.iterationbreak);
 
     if (method == "brute force"):
         method = 0;
@@ -580,4 +582,4 @@ if __name__ == "__main__":
         bake = True;
 
     print("bake: " + str(bake));
-    Main(name, bake, method, geneticiteration, geneticpopulation);
+    Main(name, bake, method, geneticiteration, geneticpopulation, geneticiterationbreak);

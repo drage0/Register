@@ -8,6 +8,7 @@
 \usepackage[hidelinks]{hyperref}
 \usepackage{graphicx}
 \usepackage{subfig}
+\usepackage{listings}
 
 \hypersetup{
   colorlinks = true,
@@ -46,7 +47,7 @@ U desnoj koloni zapisani su koraci koje bi procesor računara izvrsio, predstavl
 
 Postoje mnogo ranijih radova na ovom problemu. Od interesanthin radova je „Register Allocation by Puzzle Solving“ gde se diskutuje praktično rešavanje generalnog problema alokacija registra (ne samo lokalnog), i to prevođenjem probema na problem rešavanje puzla\cite{RegisterAllocationByPuzzleSolving}. Ovo daje ideju da redove instrukcija mozemo da posmatramo kao blokove koje slažemo. Možemo osmisliti rešenje korišćenjem genetskog programiranja.\\
 Funkcija cilja je suma cena korišćenja registara. Možemo je izračunati prolazeći redom kroz niz alokacija registara rešenja, od prvog reda pa do poslednjeg, posmatrajući kada se i kako registri menjaju.\\
-Ukrštanje implementiramo biranjem nasumičnog broja $i$ td. $0 \leq i < N$, zamenjujemo sve nizove alokacija $Aj$ sa $Bj$ za sve $i \leq j < N$ (\ref{primer2})\\
+Ukrštanje implementiramo biranjem nasumičnog broja $i$ td. $0 \leq i < N$, zamenjujemo sve nizove alokacija $Aj$ sa $Bj$ za sve $i \leq j < N$ (\ref{primer2}).\\
 Mutacija je implementirana nasumičnim biranjem broja $i$ td. $0 \leq i < N$ koji predstavlja polazni red programa od kojeg nasumično gradimo ostatak niza alokacije.\\
 
 
@@ -85,9 +86,45 @@ Na figuri \ref{methodexample2} prikazani su rezultati za veći primer koji se ne
 \label{methodexample2}
 \end{figure}
 
+Figura \ref{methodexample3} pokazuje praktični primer. Podaci za ovaj primer su dobijeni korišćenjem programa DUMPBIN i ručnim prevođenjem x64 instrukcija u sintaksu poznatom implementiranom programu.
+
+\begin{figure}
+\begin{lstlisting}[language={[x86masm]Assembler}]
+00007FF62146A42F  mov         eax,4
+00007FF62146A434  imul        rax,rax,1
+00007FF62146A438  movss       xmm0,dword ptr [rsp+94h]
+00007FF62146A441  movss       dword ptr [rsp+rax+160h],xmm0
+		memcpy(&(((struct r_vertex_prop *)model->data)[i*3+(2-j)]), &outgoing, sizeof(struct r_vertex_prop));
+00007FF62146A44A  imul        eax,dword ptr [i],3
+00007FF62146A452  mov         ecx,2
+00007FF62146A457  sub         ecx,dword ptr [j]
+00007FF62146A45E  add         eax,ecx
+00007FF62146A460  mov         eax,eax
+00007FF62146A462  imul        rax,rax,20h
+00007FF62146A466  mov         rcx,qword ptr [model]
+00007FF62146A46E  add         rax,qword ptr [rcx+8]
+00007FF62146A472  mov         r8d,20h
+00007FF62146A478  lea         rdx,[rsp+148h]
+00007FF62146A480  mov         rcx,rax
+\end{lstlisting}
+\caption{DUMPBIN rezultat}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[scale=0.25]{Image/Snapshot/GeneticProgramming5}
+\caption{Primena genetičkog programiranja na praktični primer}
+\label{methodexample3}
+\end{figure}
+
+\newpage
+
 \section{Zaključak}
 
 Korišćenje genetskog programiranja za nalaženje optimalnog načina alociranja registara možda ne daje rešenja brže od već razvijenih heurističkih algoritama \cite{OnLocalRegisterAllocation} \cite{RegisterAllocationByPuzzleSolving}. Razlog je nesigurnost u vremenu koji je potreban da se dostigne dobar rezultat. Ovo se može poboljšati drugim metodama selekcije, mutacije i ukrštanja, ali nesigurnost i dalje ostaje. Razvijena metoda ovde diskutovana daje dobra rešenja, ali sporo u poređenju sa drugim metodama.
+
+
+Pristup korišćen u ovom radu nije prikladan za x64 arhitekturu procesora zbog postojanja registara koji su proširenja drugih (na primer, registri EAX i RAX).
 
 \newpage
 
