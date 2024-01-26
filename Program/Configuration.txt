@@ -1,4 +1,4 @@
-python Main.py --name "Example 5" --bake 0 --method "genetic programming" -i 1000 -p 30
+python Main.py --name "Example 5" --bake 0 --method "genetic programming" -i 1000 -p 50 -r 2
 #100
 python Main.py --name "Example 2" --bake 0 --method "genetic programming" -i 2100 -p 30
 #14
